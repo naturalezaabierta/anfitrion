@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#122119">
+<title>Anfitriones · Naturaleza Abierta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --verde-950:#122119; --verde-800:#234131; --verde-700:#2d503e; --verde-600:#3e6d54; --verde-100:#e4eee7; --verde-50:#f0f6f2;
+    --arena-50:#f7f9f7; --arena-100:#f0f2ef;
+    --ocre-600:#9c6f2f; --ocre-100:#fbf3e5;
+    --rojo-600:#c23e3e; --rojo-50:#fdf2f2;
+    --tinta-fuerte:#111814; --tinta:#232d27; --tinta-suave:#66736a;
+    --borde:#e2e8e3; --borde-suave:#edf1ee;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{
+    background:var(--arena-50); color:var(--tinta);
+    font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;
+    font-size:15px; line-height:1.45; -webkit-font-smoothing:antialiased;
+  }
+  [hidden]{display:none !important;}
+  button{
+    font-family:inherit; font-weight:600; font-size:15px; cursor:pointer;
+    border:1px solid transparent; background:var(--verde-700); color:#fff;
+    padding:12px 18px; border-radius:10px; min-height:46px;
+  }
+  button:hover{background:var(--verde-800);}
+  button:disabled{opacity:.55;cursor:not-allowed;}
+  button.sec{background:#fff;color:var(--tinta);border-color:var(--borde);}
+  button.sec:hover{background:var(--arena-50);}
+  button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid rgba(62,109,84,.45);outline-offset:2px;}
+  input{
+    font-family:inherit; font-size:16px; width:100%; padding:12px 14px;
+    border:1px solid var(--borde); border-radius:10px; background:#fff; color:var(--tinta-fuerte);
+  }
+  label{display:block;font-size:13px;font-weight:600;color:var(--tinta-suave);margin-bottom:6px;}
+  a{color:var(--verde-600);}
+
+  /* Login */
+  #login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
+    background:radial-gradient(circle at 50% 15%,#eaf2ec 0%,var(--arena-50) 65%);}
+  .login-caja{width:100%;max-width:380px;}
+  .login-marca{text-align:center;margin-bottom:24px;}
+  .login-marca img{width:72px;height:72px;object-fit:contain;background:#fff;border-radius:18px;padding:8px;
+    box-shadow:0 4px 12px rgba(18,33,25,.06);margin-bottom:12px;}
+  .login-marca h1{margin:0 0 4px;font-size:22px;color:var(--verde-950);letter-spacing:-.02em;}
+  .login-marca p{margin:0;color:var(--tinta-suave);}
+  .tarjeta-login{background:#fff;border:1px solid var(--borde);border-radius:14px;padding:24px;}
+  .campo{margin-bottom:14px;}
+  .error{background:var(--rojo-50);color:var(--rojo-600);border-radius:8px;padding:10px 12px;font-size:13px;margin:12px 0 0;}
+
+  /* App */
+  header.barra{
+    position:sticky;top:0;z-index:5;background:var(--verde-950);color:#fff;
+    display:flex;align-items:center;gap:12px;padding:10px 16px;
+  }
+  header.barra img{width:34px;height:34px;object-fit:contain;background:#fff;border-radius:8px;padding:3px;}
+  header.barra .tit{flex:1;min-width:0;}
+  header.barra .tit strong{display:block;font-size:14px;}
+  header.barra .tit span{display:block;font-size:12px;color:#a4b8ab;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  header.barra button{background:rgba(255,255,255,.1);min-height:38px;padding:8px 14px;font-size:13px;}
+  main{max-width:720px;margin:0 auto;padding:18px 16px 60px;}
+  h2{margin:0 0 4px;font-size:21px;letter-spacing:-.02em;color:var(--tinta-fuerte);}
+  .sub{margin:0 0 16px;color:var(--tinta-suave);}
+  .vacio{padding:40px 16px;text-align:center;color:var(--tinta-suave);}
+
+  .evento{background:#fff;border:1px solid var(--borde);border-radius:14px;padding:16px;margin-bottom:12px;}
+  .evento h3{margin:0 0 4px;font-size:17px;color:var(--verde-950);}
+  .evento .meta{color:var(--tinta-suave);font-size:13.5px;margin-bottom:12px;}
+  .acciones{display:flex;gap:8px;flex-wrap:wrap;}
+  .acciones a{text-decoration:none;}
+
+  .resumen{background:var(--verde-950);color:#fff;border-radius:14px;padding:16px 18px;margin-bottom:14px;}
+  .resumen .num{font-size:30px;font-weight:700;letter-spacing:-.02em;}
+  .resumen .de{color:#a4b8ab;font-size:14px;}
+  .barra-prog{height:8px;background:rgba(255,255,255,.14);border-radius:99px;margin-top:10px;overflow:hidden;}
+  .barra-prog div{height:100%;background:#8fd0a9;border-radius:99px;transition:width .25s ease;}
+
+  .herramientas{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .herramientas input{flex:1;min-width:180px;}
+
+  .asistente{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--borde);
+    border-radius:12px;padding:12px 14px;margin-bottom:8px;}
+  .asistente.llego{background:var(--verde-50);border-color:#cfe3d6;}
+  .asistente .datos{flex:1;min-width:0;}
+  .asistente .nombre{font-weight:700;color:var(--tinta-fuerte);overflow-wrap:anywhere;}
+  .asistente .det{font-size:13px;color:var(--tinta-suave);}
+  .chip{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;background:var(--ocre-100);color:var(--ocre-600);margin-top:4px;}
+  .asistente button{min-width:96px;}
+  .asistente.llego button{background:#fff;color:var(--verde-700);border-color:#cfe3d6;}
+  .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--tinta-fuerte);color:#fff;
+    padding:10px 16px;border-radius:99px;font-size:13px;z-index:20;}
+  @media (prefers-reduced-motion:reduce){.barra-prog div{transition:none;}}
+</style>
+</head>
+<body>
+
+<!-- ============ ENTRAR ============ -->
+<div id="login">
+  <div class="login-caja">
+    <div class="login-marca">
+      <img alt="Naturaleza Abierta" src="https://www.naturalezaabierta.com/wp-content/uploads/2026/03/cropped-cropped-solo-logo-WEB2.png">
+      <h1>Anfitriones</h1>
+      <p>Naturaleza Abierta</p>
+    </div>
+    <div class="tarjeta-login">
+      <form id="form-login">
+        <div class="campo"><label for="email">Correo</label>
+          <input id="email" type="email" required autocomplete="username" placeholder="tu@correo.com"></div>
+        <div class="campo"><label for="clave">Contraseña</label>
+          <input id="clave" type="password" required autocomplete="current-password" placeholder="••••••••"></div>
+        <button type="submit" id="btn-entrar" style="width:100%;">Entrar</button>
+        <p class="error" id="login-error" hidden></p>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app" hidden>
+  <header class="barra">
+    <img alt="" src="https://www.naturalezaabierta.com/wp-content/uploads/2026/03/cropped-cropped-solo-logo-WEB2.png">
+    <div class="tit"><strong id="quien">Anfitrión</strong><span id="donde">Mis eventos</span></div>
+    <button id="btn-salir" type="button">Salir</button>
+  </header>
+  <main id="contenido"></main>
+</div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const sb = createClient(
+  'https://tgvcvnhrwswuxgjbpvwq.supabase.co',
+  'sb_publishable_EKV8OM1y96u-DV_kUPGwkg_BZuGdf4D'
+);
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const fmtFecha = f => {
+  if (!f) return 'Sin fecha';
+  const s = String(f);
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(s + 'T12:00:00') : new Date(s);
+  return d.toLocaleDateString('es-VE', { weekday:'long', day:'numeric', month:'long' });
+};
+const money = (n, m) => Number(n || 0).toFixed(2) + ' ' + (m || 'USD');
+
+let eventoActual = null;   // { evento, asistentes, total_personas }
+let filtro = '';
+
+function toast(msg){
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2200);
+}
+
+/* ---------- Entrar / salir ---------- */
+$('form-login').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = $('btn-entrar'), err = $('login-error');
+  err.hidden = true; btn.disabled = true; btn.textContent = 'Entrando…';
+  const { error } = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('clave').value });
+  btn.disabled = false; btn.textContent = 'Entrar';
+  if (error){
+    err.textContent = error.message === 'Invalid login credentials'
+      ? 'Correo o contraseña incorrectos. Revisa los datos e intenta de nuevo.' : error.message;
+    err.hidden = false; return;
+  }
+  iniciar();
+});
+
+$('btn-salir').addEventListener('click', async () => {
+  await sb.auth.signOut();
+  location.reload();
+});
+
+async function iniciar(){
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session){ $('login').hidden = false; $('app').hidden = true; return; }
+  $('login').hidden = true; $('app').hidden = false;
+
+  const { data: perfil } = await sb.from('usuarios_panel').select('nombre,email').eq('id', session.user.id).maybeSingle();
+  $('quien').textContent = perfil?.nombre || perfil?.email || session.user.email;
+  mostrarMisEventos();
+}
+
+/* ---------- Mis eventos ---------- */
+async function mostrarMisEventos(){
+  eventoActual = null; filtro = '';
+  $('donde').textContent = 'Mis eventos';
+  const cont = $('contenido');
+  cont.innerHTML = '<div class="vacio">Cargando tus eventos…</div>';
+  const { data, error } = await sb.rpc('fn_mis_eventos_anfitrion');
+  if (error){ cont.innerHTML = '<div class="vacio">No se pudieron cargar tus eventos. Revisa tu conexión y vuelve a abrir la página.</div>'; return; }
+  const lista = data || [];
+  if (!lista.length){
+    cont.innerHTML = '<h2>Mis eventos</h2><div class="vacio">Todavía no tienes eventos asignados. Pide a la administración que te asigne uno con este correo.</div>';
+    return;
+  }
+  cont.innerHTML = '<h2>Mis eventos</h2><p class="sub">Toca un evento para ver quién viene y marcar quién llegó.</p>' +
+    lista.map(e => `
+      <div class="evento">
+        <h3>${esc(e.nombre)}</h3>
+        <div class="meta">${esc(fmtFecha(e.fecha))}${e.hora ? ' · ' + esc(e.hora) : ''}${e.ciudad_estado ? ' · ' + esc(e.ciudad_estado) : ''}<br>${e.personas_pagadas} persona(s) con reserva pagada</div>
+        <div class="acciones">
+          <button type="button" data-ver="${esc(e.id)}">Ver asistentes</button>
+          ${e.enlace_grupo_whatsapp ? `<a href="${esc(e.enlace_grupo_whatsapp)}" target="_blank" rel="noopener"><button type="button" class="sec">Grupo de WhatsApp</button></a>` : ''}
+        </div>
+      </div>`).join('');
+  cont.querySelectorAll('[data-ver]').forEach(b => b.onclick = () => abrirEvento(b.dataset.ver));
+}
+
+/* ---------- Un evento ---------- */
+async function abrirEvento(id){
+  const cont = $('contenido');
+  cont.innerHTML = '<div class="vacio">Cargando la lista…</div>';
+  const { data, error } = await sb.rpc('fn_lista_asistentes_evento', { p_evento_id: id });
+  if (error || data?.error){ cont.innerHTML = '<div class="vacio">No se pudo cargar la lista de este evento.</div>'; return; }
+  eventoActual = data; filtro = '';
+  pintarEvento();
+}
+
+function pintarEvento(){
+  const { evento, asistentes } = eventoActual;
+  $('donde').textContent = evento.nombre;
+  const totalPers = asistentes.reduce((s, a) => s + Number(a.personas || 1), 0);
+  const llegaron = asistentes.filter(a => a.asistio).reduce((s, a) => s + Number(a.personas || 1), 0);
+  const pct = totalPers ? Math.round(llegaron * 100 / totalPers) : 0;
+
+  const q = filtro.trim().toLowerCase();
+  const visibles = asistentes.filter(a => !q || (`${a.nombre || ''} ${a.apellido || ''}`).toLowerCase().includes(q));
+
+  $('contenido').innerHTML = `
+    <div class="acciones" style="margin-bottom:14px;">
+      <button type="button" class="sec" id="volver">Volver a mis eventos</button>
+      <button type="button" class="sec" id="refrescar">Actualizar lista</button>
+    </div>
+    <h2>${esc(evento.nombre)}</h2>
+    <p class="sub">${esc(fmtFecha(evento.fecha))}${evento.hora ? ' · ' + esc(evento.hora) : ''}</p>
+    <div class="resumen">
+      <div><span class="num">${llegaron}</span> <span class="de">de ${totalPers} persona(s) han llegado</span></div>
+      <div class="barra-prog" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div style="width:${pct}%"></div></div>
+    </div>
+    <div class="herramientas">
+      <input id="buscar" type="search" placeholder="Buscar por nombre o apellido" value="${esc(filtro)}">
+      <button type="button" class="sec" id="copiar">Copiar lista</button>
+    </div>
+    <div id="lista">${
+      visibles.length ? visibles.map(a => `
+        <div class="asistente ${a.asistio ? 'llego' : ''}">
+          <div class="datos">
+            <div class="nombre">${esc(((a.nombre || '') + ' ' + (a.apellido || '')).trim() || 'Sin nombre')}</div>
+            <div class="det">${a.personas} persona(s)${a.asistio ? ' · Llegó' : ''}</div>
+            ${Number(a.saldo) > 0 ? `<span class="chip">Cobrar en efectivo: ${esc(money(a.saldo, a.moneda))}</span>` : ''}
+          </div>
+          <button type="button" data-compra="${esc(a.compra_id)}" data-asistio="${a.asistio ? '1' : '0'}">${a.asistio ? 'Desmarcar' : 'Llegó'}</button>
+        </div>`).join('')
+      : `<div class="vacio">${asistentes.length ? 'Nadie coincide con esa búsqueda.' : 'Todavía no hay reservas pagadas para este evento.'}</div>`
+    }</div>`;
+
+  $('volver').onclick = mostrarMisEventos;
+  $('refrescar').onclick = () => abrirEvento(evento.id);
+  $('buscar').addEventListener('input', (e) => {
+    filtro = e.target.value;
+    const pos = e.target.selectionStart;
+    pintarEvento();
+    const n = $('buscar'); n.focus(); n.setSelectionRange(pos, pos);
+  });
+  $('copiar').onclick = () => {
+    const txt = asistentes.map((a, i) =>
+      `${i + 1}. ${((a.nombre || '') + ' ' + (a.apellido || '')).trim()} · ${a.personas} pers.${a.asistio ? ' · llegó' : ''}`).join('\n');
+    navigator.clipboard.writeText(txt).then(() => toast('Lista copiada'), () => toast('No se pudo copiar'));
+  };
+  document.querySelectorAll('[data-compra]').forEach(b => b.onclick = () => marcar(b));
+}
+
+async function marcar(btn){
+  const id = btn.dataset.compra;
+  const nuevo = btn.dataset.asistio !== '1';
+  btn.disabled = true;
+  const { data, error } = await sb.rpc('fn_marcar_asistencia', { p_compra_id: id, p_asistio: nuevo });
+  if (error || data?.error){
+    btn.disabled = false;
+    toast('No se pudo guardar. Intenta de nuevo.');
+    return;
+  }
+  const a = eventoActual.asistentes.find(x => x.compra_id === id);
+  if (a) a.asistio = nuevo;
+  pintarEvento();
+}
+
+iniciar();
+</script>
+</body>
+</html>
