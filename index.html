@@ -339,7 +339,7 @@ function pintarCobro(d){
       ${ya ? '' : '<button type="button" class="sec" id="btn-pasar">Dejar pasar con saldo pendiente</button>'}
       <button type="button" class="sec" id="qr-listo">Volver</button>
     </div>`;
-  $('qr-listo').onclick = mostrarMisEventos;
+  $('qr-listo').onclick = () => d.evento_id ? abrirEvento(d.evento_id) : mostrarMisEventos();
   if ($('btn-pasar')) $('btn-pasar').onclick = async () => {
     const b = $('btn-pasar'); b.disabled = true;
     const { data: r, error: e } = await sb.rpc('fn_dejar_pasar_qr', { p_token: d.token });
@@ -495,9 +495,11 @@ function pintarEvento(){
           <div class="datos">
             <div class="nombre">${esc(((a.nombre || '') + ' ' + (a.apellido || '')).trim() || 'Sin nombre')}</div>
             <div class="det">${a.personas} persona(s)${a.asistio ? ' · Llegó' + (a.atendio ? ' (atendió ' + esc(a.atendio) + ')' : '') : ''}</div>
-            ${Number(a.saldo) > 0 ? `<span class="chip">Cobrar en efectivo: ${esc(money(a.saldo, a.moneda))}</span>` : ''}
+            ${Number(a.saldo) > 0 ? `<span class="chip">Falta pagar: ${esc(money(a.saldo, a.moneda))}</span>` : ''}
           </div>
-          <button type="button" data-compra="${esc(a.compra_id)}" data-asistio="${a.asistio ? '1' : '0'}">${a.asistio ? 'Desmarcar' : 'Llegó'}</button>
+          ${Number(a.saldo) > 0
+            ? `<button type="button" data-cobrar="${esc(a.qr_token)}">Cobrar</button>`
+            : `<button type="button" data-compra="${esc(a.compra_id)}" data-asistio="${a.asistio ? '1' : '0'}">${a.asistio ? 'Desmarcar' : 'Llegó'}</button>`}
         </div>`).join('')
       : `<div class="vacio">${asistentes.length ? 'Nadie coincide con esa búsqueda.' : 'Todavía no hay reservas pagadas para este evento.'}</div>`
     }</div>`;
@@ -517,6 +519,7 @@ function pintarEvento(){
     navigator.clipboard.writeText(txt).then(() => toast('Lista copiada'), () => toast('No se pudo copiar'));
   };
   document.querySelectorAll('[data-compra]').forEach(b => b.onclick = () => marcar(b));
+  document.querySelectorAll('[data-cobrar]').forEach(b => b.onclick = () => escanear(b.dataset.cobrar));
 }
 
 async function marcar(btn){
@@ -526,7 +529,7 @@ async function marcar(btn){
   const { data, error } = await sb.rpc('fn_marcar_asistencia', { p_compra_id: id, p_asistio: nuevo });
   if (error || data?.error){
     btn.disabled = false;
-    toast('No se pudo guardar. Intenta de nuevo.');
+    toast(data?.error === 'saldo_pendiente' ? 'Primero cobra el saldo pendiente.' : 'No se pudo guardar. Intenta de nuevo.');
     return;
   }
   const a = eventoActual.asistentes.find(x => x.compra_id === id);
