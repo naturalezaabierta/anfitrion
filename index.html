@@ -96,6 +96,39 @@
   .asistente.llego button{background:#fff;color:var(--verde-700);border-color:#cfe3d6;}
   .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--tinta-fuerte);color:#fff;
     padding:10px 16px;border-radius:99px;font-size:13px;z-index:20;}
+
+  /* Resultado de escaneo */
+  .resultado{border-radius:16px;padding:22px 18px;text-align:center;margin-bottom:14px;border:2px solid;}
+  .resultado.ok{background:var(--verde-50);border-color:#8fd0a9;}
+  .resultado.warn{background:var(--ocre-100);border-color:#e4c88f;}
+  .resultado.bad{background:var(--rojo-50);border-color:#eba5a5;}
+  .resultado .grande{font-size:26px;font-weight:700;letter-spacing:-.02em;margin:0 0 6px;}
+  .resultado.ok .grande{color:var(--verde-700);} .resultado.warn .grande{color:var(--ocre-600);} .resultado.bad .grande{color:var(--rojo-600);}
+  .resultado .quien{font-size:19px;font-weight:700;color:var(--tinta-fuerte);overflow-wrap:anywhere;}
+  .resultado .linea{color:var(--tinta);margin-top:4px;}
+  .regalo{margin:12px 0;text-align:center;}
+  .regalo .hecho{display:inline-block;padding:10px 16px;border-radius:99px;background:var(--verde-100);color:var(--verde-700);font-weight:600;}
+
+  /* Cobro en la puerta */
+  .tit-sec{margin:18px 0 8px;font-size:15px;color:var(--tinta-fuerte);}
+  .metodos{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+  button.metodo{background:#fff;color:var(--tinta);border:1px solid var(--borde);padding:10px 14px;min-height:42px;}
+  button.metodo.activo{background:var(--verde-700);color:#fff;border-color:var(--verde-700);}
+  .caja-metodo{background:#fff;border:1px solid var(--borde);border-radius:14px;padding:16px;}
+  .caja-metodo .campo{margin-bottom:12px;}
+  .dato{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:8px 0;border-bottom:1px solid #edf1ee;}
+  .dato span{color:var(--tinta-suave);font-size:13px;}
+  .dato strong{display:block;color:var(--tinta-fuerte);overflow-wrap:anywhere;}
+  .dato button{min-height:36px;padding:6px 12px;font-size:13px;}
+  .qrimg{display:block;margin:12px auto 4px;max-width:240px;width:100%;border-radius:10px;}
+  .nota{font-size:13px;color:var(--tinta-suave);margin:10px 0 0;}
+  .vuelto{font-size:20px;font-weight:700;color:var(--ocre-600);margin-top:8px;}
+  .fila-cobro{background:#fff;border:1px solid var(--borde);border-radius:12px;padding:12px 14px;margin-bottom:8px;}
+  .fila-cobro .arriba{display:flex;justify-content:space-between;gap:10px;font-weight:700;}
+  .fila-cobro .abajo{font-size:13px;color:var(--tinta-suave);margin-top:2px;}
+  .tabla-tot{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:14px;background:#fff;border:1px solid var(--borde);border-radius:12px;overflow:hidden;}
+  .tabla-tot th,.tabla-tot td{padding:8px 10px;text-align:left;border-bottom:1px solid #edf1ee;}
+  .tabla-tot th{font-size:12px;color:var(--tinta-suave);}
   @media (prefers-reduced-motion:reduce){.barra-prog div{transition:none;}}
 </style>
 </head>
@@ -132,6 +165,7 @@
   <main id="contenido"></main>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -152,6 +186,7 @@ const money = (n, m) => Number(n || 0).toFixed(2) + ' ' + (m || 'USD');
 
 let eventoActual = null;   // { evento, asistentes, total_personas }
 let filtro = '';
+const tokenUrl = new URLSearchParams(location.search).get('t');
 
 function toast(msg){
   const t = document.createElement('div');
@@ -187,7 +222,7 @@ async function iniciar(){
 
   const { data: perfil } = await sb.from('usuarios_panel').select('nombre,email').eq('id', session.user.id).maybeSingle();
   $('quien').textContent = perfil?.nombre || perfil?.email || session.user.email;
-  mostrarMisEventos();
+  if (tokenUrl){ procesarQR(tokenUrl); } else { mostrarMisEventos(); }
 }
 
 /* ---------- Mis eventos ---------- */
@@ -216,6 +251,208 @@ async function mostrarMisEventos(){
   cont.querySelectorAll('[data-ver]').forEach(b => b.onclick = () => abrirEvento(b.dataset.ver));
 }
 
+/* ---------- Escaneo de entrada (QR) ---------- */
+const copiarTxt = (t) => navigator.clipboard.writeText(String(t)).then(() => toast('Copiado'), () => toast('No se pudo copiar'));
+const nombreDe = d => ((d.nombre || '') + ' ' + (d.apellido || '')).trim();
+const bs = n => Number(n || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+async function procesarQR(token){
+  history.replaceState(null, '', location.pathname);
+  await escanear(token);
+}
+
+async function escanear(token){
+  $('donde').textContent = 'Escaneo de entrada';
+  $('contenido').innerHTML = '<div class="vacio">Verificando entrada…</div>';
+  const { data, error } = await sb.rpc('fn_marcar_asistencia_qr', { p_token: token });
+  pintarResultadoQR(data, error);
+}
+
+function pintarResultadoQR(d, error){
+  const cont = $('contenido');
+  const salir = '<div class="acciones" style="justify-content:center;"><button type="button" id="qr-listo">Listo, siguiente</button></div>';
+  if (!error && d && !d.error && Number(d.saldo) > 0 && (d.resultado === 'saldo_pendiente' || d.resultado === 'ya_habia_llegado')){
+    return pintarCobro(d);
+  }
+  let html;
+  if (error || !d){
+    html = `<div class="resultado bad"><p class="grande">Sin conexión</p><div class="linea">No se pudo verificar. Revisa tu internet y vuelve a escanear el código.</div></div>${salir}`;
+  } else if (d.error){
+    const msg = {
+      no_encontrada: ['Código no válido', 'Este código no corresponde a ninguna entrada.'],
+      sin_acceso: ['Sin permiso', 'Tu cuenta no puede validar entradas.'],
+      otro_evento: ['Otro evento', `Esta entrada es de “${esc(d.evento_nombre || '')}”, un evento que no tienes asignado.`],
+      sin_pagar: ['Pago pendiente', `La reserva de ${esc(nombreDe(d))} no tiene el pago confirmado.`]
+    }[d.error] || ['No se pudo validar', 'Intenta de nuevo.'];
+    html = `<div class="resultado ${d.error === 'sin_pagar' ? 'warn' : 'bad'}"><p class="grande">${msg[0]}</p><div class="linea">${msg[1]}</div></div>${salir}`;
+  } else {
+    const ya = d.resultado === 'ya_habia_llegado';
+    const hora = d.marcada_en ? new Date(d.marcada_en).toLocaleTimeString('es-VE', { hour:'2-digit', minute:'2-digit' }) : '';
+    html = `
+      <div class="resultado ${ya ? 'warn' : 'ok'}">
+        <p class="grande">${ya ? 'Ya había ingresado' : 'Puede pasar'}</p>
+        <div class="quien">${esc(nombreDe(d))}</div>
+        <div class="linea">${d.personas} persona(s) · ${esc(d.evento_nombre || '')}</div>
+        ${ya && hora ? `<div class="linea">Esta entrada se escaneó a las ${esc(hora)}.</div>` : ''}
+        ${!ya ? '<div class="linea"><strong>Entrégale su brazalete.</strong></div>' : ''}
+        ${d.vuelto > 0 ? `<div class="vuelto">Entrega de vuelto: ${esc(money(d.vuelto, d.moneda))}</div>` : ''}
+      </div>
+      <div class="regalo" id="zona-regalo">${
+        d.regalo_entregado
+          ? '<span class="hecho">Regalo ya entregado</span>'
+          : '<button type="button" class="sec" id="btn-regalo">Marcar regalo / obsequio entregado</button>'
+      }</div>
+      ${salir}
+      <div class="acciones" style="justify-content:center;margin-top:10px;"><button type="button" class="sec" id="qr-lista">Ver lista del evento</button></div>`;
+  }
+  cont.innerHTML = html;
+  $('qr-listo').onclick = mostrarMisEventos;
+  if ($('qr-lista')) $('qr-lista').onclick = () => abrirEvento(d.evento_id);
+  if ($('btn-regalo')) $('btn-regalo').onclick = async () => {
+    const b = $('btn-regalo'); b.disabled = true;
+    const { data: r, error: e } = await sb.rpc('fn_marcar_regalo_qr', { p_token: d.token, p_entregado: true });
+    if (e || r?.error){ b.disabled = false; toast('No se pudo guardar el regalo.'); return; }
+    $('zona-regalo').innerHTML = '<span class="hecho">Regalo entregado</span>';
+  };
+}
+
+/* ---------- Cobro del saldo en la puerta ---------- */
+function pintarCobro(d){
+  const cont = $('contenido');
+  const metodos = d.metodos || [];
+  const ya = d.resultado === 'ya_habia_llegado';
+  cont.innerHTML = `
+    <div class="resultado warn">
+      <p class="grande">Falta pagar ${esc(money(d.saldo, d.moneda))}</p>
+      <div class="quien">${esc(nombreDe(d))}</div>
+      <div class="linea">${d.personas} persona(s) · ${esc(d.evento_nombre || '')}</div>
+      <div class="linea">≈ ${bs(d.saldo_bs)} Bs a la tasa del día</div>
+      ${ya ? '<div class="linea">Ya había ingresado con saldo pendiente.</div>' : ''}
+    </div>
+    <h3 class="tit-sec">¿Cómo va a pagar?</h3>
+    <div class="metodos">
+      <button type="button" class="metodo" data-m="efectivo">Efectivo</button>
+      ${metodos.map((m, i) => `<button type="button" class="metodo" data-m="${i}">${esc(m.tipo)}</button>`).join('')}
+    </div>
+    <div id="panel-metodo"></div>
+    <div class="acciones" style="margin-top:16px;">
+      ${ya ? '' : '<button type="button" class="sec" id="btn-pasar">Dejar pasar con saldo pendiente</button>'}
+      <button type="button" class="sec" id="qr-listo">Volver</button>
+    </div>`;
+  $('qr-listo').onclick = mostrarMisEventos;
+  if ($('btn-pasar')) $('btn-pasar').onclick = async () => {
+    const b = $('btn-pasar'); b.disabled = true;
+    const { data: r, error: e } = await sb.rpc('fn_dejar_pasar_qr', { p_token: d.token });
+    if (e || r?.error){ b.disabled = false; toast('No se pudo registrar.'); return; }
+    toast('Pasó con saldo pendiente');
+    escanear(d.token);
+  };
+  cont.querySelectorAll('.metodo').forEach(b => b.onclick = () => {
+    cont.querySelectorAll('.metodo').forEach(x => x.classList.remove('activo'));
+    b.classList.add('activo');
+    if (b.dataset.m === 'efectivo') panelEfectivo(d); else panelOtro(d, metodos[Number(b.dataset.m)]);
+  });
+}
+
+async function registrarCobro(d, metodo, monto, recibido, referencia, btn){
+  btn.disabled = true;
+  const { data: r, error } = await sb.rpc('fn_registrar_cobro_puerta', {
+    p_token: d.token, p_metodo: metodo, p_monto_usd: monto, p_monto_recibido: recibido, p_referencia: referencia
+  });
+  if (error || r?.error){
+    btn.disabled = false;
+    const msg = {
+      monto_invalido: 'El monto no es válido. El saldo pendiente es ' + money(r?.saldo, d.moneda) + '.',
+      recibido_insuficiente: 'El dinero recibido es menor que el monto a cobrar.',
+      falta_referencia: 'Escribe la referencia del pago (mínimo 4 caracteres).',
+      sin_acceso: 'Tu cuenta no puede registrar cobros en este evento.'
+    }[r?.error] || 'No se pudo registrar el cobro. Intenta de nuevo.';
+    toast(msg); return;
+  }
+  if (r.pasa){
+    pintarResultadoQR({ ...d, ok: true, resultado: 'marcada', saldo: 0, vuelto: r.vuelto }, null);
+  } else {
+    toast('Cobro registrado. Aún faltan ' + money(r.saldo_restante, d.moneda));
+    escanear(d.token);
+  }
+}
+
+function panelEfectivo(d){
+  $('panel-metodo').innerHTML = `
+    <div class="caja-metodo">
+      <div class="campo"><label for="cb-monto">Monto a cobrar (USD)</label>
+        <input id="cb-monto" type="number" inputmode="decimal" step="0.01" min="0" value="${Number(d.saldo).toFixed(2)}"></div>
+      <div class="campo"><label for="cb-recibido">Dinero recibido (USD)</label>
+        <input id="cb-recibido" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00"></div>
+      <div id="cb-vuelto" class="vuelto"></div>
+      <button type="button" id="cb-ok" style="width:100%;margin-top:12px;">Registrar cobro en efectivo</button>
+      <p class="nota">El efectivo queda a tu nombre y la administración lo verifica al cuadrar.</p>
+    </div>`;
+  const calc = () => {
+    const m = Number($('cb-monto').value || 0), r = Number($('cb-recibido').value || 0);
+    $('cb-vuelto').textContent = r > 0 && r >= m ? 'Vuelto a entregar: ' + money(r - m, d.moneda) : (r > 0 ? 'Falta ' + money(m - r, d.moneda) + ' para completar' : '');
+  };
+  $('cb-monto').oninput = calc; $('cb-recibido').oninput = calc;
+  $('cb-ok').onclick = () => registrarCobro(d, 'Efectivo', Number($('cb-monto').value), Number($('cb-recibido').value), null, $('cb-ok'));
+}
+
+function panelOtro(d, m){
+  const campos = m.campos || [];
+  const paypal = campos.find(c => /^https:\/\/(www\.)?paypal\.me\//i.test(String(c.valor || '')));
+  const linkPaypal = paypal ? String(paypal.valor).replace(/\/+$/, '') + '/' + Number(d.saldo).toFixed(2) : null;
+  const esBs = /m[oó]vil/i.test(m.tipo);
+  $('panel-metodo').innerHTML = `
+    <div class="caja-metodo">
+      <div class="dato"><div><span>Monto a pagar</span><strong>${esc(money(d.saldo, d.moneda))}${esBs ? ' · ' + bs(d.saldo_bs) + ' Bs' : ''}</strong></div>
+        <button type="button" class="sec" data-copiar="${esBs ? Number(d.saldo_bs).toFixed(2) : Number(d.saldo).toFixed(2)}">Copiar</button></div>
+      ${campos.map(c => `<div class="dato"><div><span>${esc(c.etiqueta)}</span><strong>${esc(c.valor)}</strong></div><button type="button" class="sec" data-copiar="${esc(c.valor)}">Copiar</button></div>`).join('')}
+      ${m.qr_url ? `<img class="qrimg" alt="QR de pago ${esc(m.tipo)}" src="${esc(m.qr_url)}">` : ''}
+      ${linkPaypal ? '<div id="qr-paypal" style="display:flex;justify-content:center;margin-top:12px;"></div><p class="nota" style="text-align:center;">QR de PayPal con el monto ya puesto.</p>' : ''}
+      ${m.nota ? `<p class="nota">${esc(m.nota)}</p>` : ''}
+      <div class="campo" style="margin-top:14px;"><label for="cb-monto2">Monto cobrado (USD)</label>
+        <input id="cb-monto2" type="number" inputmode="decimal" step="0.01" min="0" value="${Number(d.saldo).toFixed(2)}"></div>
+      <div class="campo"><label for="cb-ref">Referencia del pago (comprobante)</label>
+        <input id="cb-ref" type="text" placeholder="Últimos dígitos de la referencia"></div>
+      <button type="button" id="cb-ok2" style="width:100%;">Ya pagó, registrar</button>
+      <p class="nota">Queda por verificar: la administración confirma la referencia.</p>
+    </div>`;
+  document.querySelectorAll('[data-copiar]').forEach(b => b.onclick = () => copiarTxt(b.dataset.copiar));
+  if (linkPaypal && window.QRCode){
+    new QRCode($('qr-paypal'), { text: linkPaypal, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
+  }
+  $('cb-ok2').onclick = () => registrarCobro(d, m.tipo, Number($('cb-monto2').value), null, $('cb-ref').value, $('cb-ok2'));
+}
+
+/* ---------- Cobros del evento (por anfitrión) ---------- */
+async function verCobros(eventoId){
+  const cont = $('contenido');
+  cont.innerHTML = '<div class="vacio">Cargando cobros…</div>';
+  const { data, error } = await sb.rpc('fn_cobros_puerta_resumen', { p_evento_id: eventoId });
+  if (error || data?.error){ cont.innerHTML = '<div class="vacio">No se pudieron cargar los cobros.</div>'; return; }
+  const filas = data.cobros || [], tot = data.totales || [];
+  $('donde').textContent = 'Cobros del evento';
+  cont.innerHTML = `
+    <div class="acciones" style="margin-bottom:14px;"><button type="button" class="sec" id="cb-volver">Volver a la lista</button></div>
+    <h2>${data.ve_todos ? 'Cobros de todos los anfitriones' : 'Mis cobros'}</h2>
+    ${tot.length ? `<table class="tabla-tot"><thead><tr><th>Anfitrión</th><th>Método</th><th>Cobros</th><th>USD</th><th>Vueltos</th></tr></thead><tbody>${
+      tot.map(t => `<tr><td>${esc(t.anfitrion || '—')}</td><td>${esc(t.metodo)}</td><td>${t.cobros}</td><td>${Number(t.monto_usd).toFixed(2)}</td><td>${Number(t.vueltos).toFixed(2)}</td></tr>`).join('')}</tbody></table>` : ''}
+    ${filas.length ? filas.map(f => `
+      <div class="fila-cobro">
+        <div class="arriba"><span>${esc(f.cliente || 'Sin nombre')}</span><span>${Number(f.monto_usd).toFixed(2)} USD</span></div>
+        <div class="abajo">${esc(f.metodo)}${f.referencia ? ' · ref ' + esc(f.referencia) : ''}${f.recibido ? ' · recibió ' + Number(f.recibido).toFixed(2) + ', vuelto ' + Number(f.vuelto).toFixed(2) : ''}</div>
+        <div class="abajo">Cobró: ${esc(f.anfitrion || '—')} · ${esc(new Date(f.cuando).toLocaleString('es-VE', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }))} · <strong>${esc(f.estado)}</strong></div>
+        ${data.ve_todos && f.estado === 'Por verificar' ? `<div class="acciones" style="margin-top:8px;"><button type="button" data-ver="${esc(f.cobro_id)}" data-ok="1">Verificar</button><button type="button" class="sec" data-ver="${esc(f.cobro_id)}" data-ok="0">Rechazar</button></div>` : ''}
+      </div>`).join('') : '<div class="vacio">Todavía no hay cobros registrados en este evento.</div>'}`;
+  $('cb-volver').onclick = () => abrirEvento(eventoId);
+  cont.querySelectorAll('[data-ver]').forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    const { data: r, error: e } = await sb.rpc('fn_verificar_cobro_puerta', { p_cobro_id: b.dataset.ver, p_aprobar: b.dataset.ok === '1' });
+    if (e || r?.error){ b.disabled = false; toast('No se pudo actualizar.'); return; }
+    toast(b.dataset.ok === '1' ? 'Cobro verificado' : 'Cobro rechazado');
+    verCobros(eventoId);
+  });
+}
+
 /* ---------- Un evento ---------- */
 async function abrirEvento(id){
   const cont = $('contenido');
@@ -240,6 +477,7 @@ function pintarEvento(){
     <div class="acciones" style="margin-bottom:14px;">
       <button type="button" class="sec" id="volver">Volver a mis eventos</button>
       <button type="button" class="sec" id="refrescar">Actualizar lista</button>
+      <button type="button" class="sec" id="ver-cobros">Cobros</button>
     </div>
     <h2>${esc(evento.nombre)}</h2>
     <p class="sub">${esc(fmtFecha(evento.fecha))}${evento.hora ? ' · ' + esc(evento.hora) : ''}</p>
@@ -256,7 +494,7 @@ function pintarEvento(){
         <div class="asistente ${a.asistio ? 'llego' : ''}">
           <div class="datos">
             <div class="nombre">${esc(((a.nombre || '') + ' ' + (a.apellido || '')).trim() || 'Sin nombre')}</div>
-            <div class="det">${a.personas} persona(s)${a.asistio ? ' · Llegó' : ''}</div>
+            <div class="det">${a.personas} persona(s)${a.asistio ? ' · Llegó' + (a.atendio ? ' (atendió ' + esc(a.atendio) + ')' : '') : ''}</div>
             ${Number(a.saldo) > 0 ? `<span class="chip">Cobrar en efectivo: ${esc(money(a.saldo, a.moneda))}</span>` : ''}
           </div>
           <button type="button" data-compra="${esc(a.compra_id)}" data-asistio="${a.asistio ? '1' : '0'}">${a.asistio ? 'Desmarcar' : 'Llegó'}</button>
@@ -266,6 +504,7 @@ function pintarEvento(){
 
   $('volver').onclick = mostrarMisEventos;
   $('refrescar').onclick = () => abrirEvento(evento.id);
+  $('ver-cobros').onclick = () => verCobros(evento.id);
   $('buscar').addEventListener('input', (e) => {
     filtro = e.target.value;
     const pos = e.target.selectionStart;
