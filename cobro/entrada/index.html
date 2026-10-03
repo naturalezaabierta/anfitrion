@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#122119">
+<title>Tu entrada · Naturaleza Abierta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--verde-950:#122119;--verde-700:#2d503e;--verde-600:#3e6d54;--verde-100:#e4eee7;--arena-50:#f7f9f7;
+    --ocre-600:#9c6f2f;--ocre-100:#fbf3e5;--rojo-600:#c23e3e;--rojo-50:#fdf2f2;--tinta-fuerte:#111814;--tinta:#232d27;--tinta-suave:#66736a;--borde:#e2e8e3;}
+  *{box-sizing:border-box;}
+  body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 0%,#eaf2ec 0%,var(--arena-50) 60%);color:var(--tinta);
+    font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;font-size:15px;line-height:1.45;
+    display:flex;justify-content:center;padding:24px 16px 48px;-webkit-font-smoothing:antialiased;}
+  .caja{width:100%;max-width:400px;}
+  .marca{text-align:center;margin-bottom:18px;}
+  .marca img{width:64px;height:64px;object-fit:contain;background:#fff;border-radius:16px;padding:7px;box-shadow:0 4px 12px rgba(18,33,25,.06);}
+  .marca p{margin:8px 0 0;font-size:13px;color:var(--tinta-suave);letter-spacing:.04em;text-transform:uppercase;font-weight:600;}
+  .entrada{background:#fff;border:1px solid var(--borde);border-radius:20px;overflow:hidden;box-shadow:0 8px 24px rgba(18,33,25,.07);}
+  .cabecera{background:var(--verde-950);color:#fff;padding:18px 20px;}
+  .cabecera h1{margin:0 0 4px;font-size:19px;letter-spacing:-.01em;}
+  .cabecera .meta{color:#a4b8ab;font-size:13.5px;}
+  .cuerpo{padding:20px;text-align:center;}
+  .quien{font-size:20px;font-weight:700;color:var(--tinta-fuerte);overflow-wrap:anywhere;}
+  .pers{color:var(--tinta-suave);margin-top:2px;}
+  #qr{display:flex;justify-content:center;margin:18px 0 8px;}
+  #qr canvas,#qr img{border-radius:8px;}
+  .ayuda{font-size:13px;color:var(--tinta-suave);margin:0;}
+  .chip{display:inline-block;margin-top:14px;padding:6px 12px;border-radius:99px;font-size:13px;font-weight:600;background:var(--ocre-100);color:var(--ocre-600);}
+  .aviso{margin-top:16px;padding:12px 14px;border-radius:12px;font-weight:600;}
+  .aviso.usada{background:var(--ocre-100);color:var(--ocre-600);}
+  .aviso.mal{background:var(--rojo-50);color:var(--rojo-600);}
+  .estado{padding:48px 20px;text-align:center;color:var(--tinta-suave);}
+  .pago{margin-top:18px;text-align:left;border-top:1px solid var(--borde);padding-top:16px;}
+  .pago h2{margin:0 0 4px;font-size:16px;color:var(--tinta-fuerte);}
+  .pago .monto{font-size:20px;font-weight:700;color:var(--ocre-600);margin:0 0 10px;}
+  .metodo{border:1px solid var(--borde);border-radius:12px;padding:12px 14px;margin-bottom:10px;}
+  .metodo h3{margin:0 0 6px;font-size:15px;color:var(--verde-950);}
+  .dato{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #edf1ee;}
+  .dato:last-of-type{border-bottom:0;}
+  .dato span{display:block;color:var(--tinta-suave);font-size:12.5px;}
+  .dato strong{display:block;overflow-wrap:anywhere;color:var(--tinta-fuerte);}
+  .dato button{font-family:inherit;font-weight:600;font-size:13px;border:1px solid var(--borde);background:#fff;color:var(--tinta);padding:6px 12px;border-radius:8px;cursor:pointer;min-height:34px;}
+  .qrpago{display:block;margin:10px auto 2px;max-width:220px;width:100%;border-radius:8px;}
+  .nota{font-size:12.5px;color:var(--tinta-suave);margin:8px 0 0;}
+  .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--tinta-fuerte);color:#fff;padding:10px 16px;border-radius:99px;font-size:13px;}
+
+</style>
+</head>
+<body>
+<div class="caja">
+  <div class="marca">
+    <img alt="Naturaleza Abierta" src="https://www.naturalezaabierta.com/wp-content/uploads/2026/03/cropped-cropped-solo-logo-WEB2.png">
+    <p>Tu entrada</p>
+  </div>
+  <div class="entrada" id="entrada"><div class="estado">Cargando tu entrada…</div></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const sb = createClient(
+  'https://tgvcvnhrwswuxgjbpvwq.supabase.co',
+  'sb_publishable_EKV8OM1y96u-DV_kUPGwkg_BZuGdf4D'
+);
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const fmtFecha = f => {
+  if (!f) return '';
+  const s = String(f);
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(s + 'T12:00:00') : new Date(s);
+  return d.toLocaleDateString('es-VE', { weekday:'long', day:'numeric', month:'long' });
+};
+
+
+const bs = n => Number(n || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function copiar(t){
+  const ok = () => { const x = document.createElement('div'); x.className = 'toast'; x.textContent = 'Copiado'; document.body.appendChild(x); setTimeout(() => x.remove(), 1600); };
+  navigator.clipboard.writeText(String(t)).then(ok, () => {});
+}
+function pintarPago(data){
+  const zona = document.getElementById('zona-pago');
+  if (!zona) return;
+  const metodos = data.metodos || [];
+  zona.className = 'pago';
+  zona.innerHTML = `
+    <h2>Te falta pagar</h2>
+    <p class="monto">${Number(data.saldo).toFixed(2)} ${esc(data.moneda || 'USD')} <span style="font-size:14px;font-weight:600;color:var(--tinta-suave);">≈ ${bs(data.saldo_bs)} Bs</span></p>
+    <p class="ayuda" style="margin-bottom:12px;">Puedes pagarlo ahora desde tu teléfono o en efectivo al llegar al evento. Si pagas ahora, muestra tu comprobante al anfitrión.</p>
+    ${metodos.map(m => {
+      const campos = m.campos || [];
+      const pp = campos.find(c => /^https:\/\/(www\.)?paypal\.me\//i.test(String(c.valor || '')));
+      const linkPP = pp ? String(pp.valor).replace(/\/+$/, '') + '/' + Number(data.saldo).toFixed(2) : null;
+      return `<div class="metodo"><h3>${esc(m.tipo)}</h3>
+        ${campos.map(c => `<div class="dato"><div><span>${esc(c.etiqueta)}</span><strong>${esc(c.valor)}</strong></div><button type="button" data-copiar="${esc(c.valor)}">Copiar</button></div>`).join('')}
+        ${linkPP ? `<p class="nota"><a href="${esc(linkPP)}" target="_blank" rel="noopener">Pagar con PayPal (monto ya puesto)</a></p>` : ''}
+        ${m.qr_url ? `<img class="qrpago" alt="QR de pago ${esc(m.tipo)}" src="${esc(m.qr_url)}">` : ''}
+        ${m.nota ? `<p class="nota">${esc(m.nota)}</p>` : ''}
+      </div>`;
+    }).join('')}`;
+  zona.querySelectorAll('[data-copiar]').forEach(b => b.onclick = () => copiar(b.dataset.copiar));
+}
+
+const token = new URLSearchParams(location.search).get('t');
+const caja = document.getElementById('entrada');
+
+(async () => {
+  if (!token){ caja.innerHTML = '<div class="estado">Este enlace no tiene una entrada. Abre el enlace completo que te enviamos.</div>'; return; }
+  const { data, error } = await sb.rpc('fn_entrada_publica', { p_token: token });
+  if (error){ caja.innerHTML = '<div class="estado">No pudimos cargar tu entrada. Revisa tu conexión e inténtalo de nuevo.</div>'; return; }
+  if (!data || data.error){ caja.innerHTML = '<div class="estado">No encontramos esta entrada. Escríbenos por WhatsApp y te ayudamos.</div>'; return; }
+
+  const nombre = ((data.nombre || '') + ' ' + (data.apellido || '')).trim();
+  const lugar = [fmtFecha(data.fecha), data.hora, data.ciudad].filter(Boolean).join(' · ');
+  const urlScan = 'https://anfitrion.naturalezaabierta.com/?t=' + encodeURIComponent(token);
+
+  caja.innerHTML = `
+    <div class="cabecera"><h1>${esc(data.evento_nombre || 'Evento')}</h1><div class="meta">${esc(lugar)}</div></div>
+    <div class="cuerpo">
+      <div class="quien">${esc(nombre || 'Invitado')}</div>
+      <div class="pers">${data.personas} persona(s)</div>
+      ${data.pagada ? '<div id="qr"></div><p class="ayuda">Muestra este código al anfitrión al llegar.<br>Sube el brillo de tu pantalla para que se lea mejor.</p>'
+                    : '<div class="aviso mal">Tu reserva todavía no tiene el pago confirmado. Cuando se confirme, aquí aparecerá tu código.</div>'}
+      ${data.pagada && Number(data.saldo) > 0 ? '<div id="zona-pago"></div>' : ''}
+      ${data.asistio ? '<div class="aviso usada">Esta entrada ya fue usada.</div>' : ''}
+    </div>`;
+
+  if (data.pagada && Number(data.saldo) > 0) pintarPago(data);
+  if (data.pagada && window.QRCode){
+    new QRCode(document.getElementById('qr'), { text: urlScan, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M });
+  }
+})();
+</script>
+</body>
+</html>
