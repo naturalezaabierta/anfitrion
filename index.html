@@ -294,6 +294,7 @@ function pintarResultadoQR(d, error){
         <p class="grande">${ya ? 'Ya había ingresado' : 'Puede pasar'}</p>
         <div class="quien">${esc(nombreDe(d))}</div>
         <div class="linea">${d.personas} persona(s) · ${esc(d.evento_nombre || '')}</div>
+        ${d.total > 1 ? '<div class="linea"><strong>Ingreso '+d.ingresadas+' de '+d.total+'</strong></div>' : ''}
         ${ya && hora ? `<div class="linea">Esta entrada se escaneó a las ${esc(hora)}.</div>` : ''}
         ${!ya ? '<div class="linea"><strong>Entrégale su brazalete.</strong></div>' : ''}
         ${d.vuelto > 0 ? `<div class="vuelto">Entrega de vuelto: ${esc(money(d.vuelto, d.moneda))}</div>` : ''}
