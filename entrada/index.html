@@ -47,6 +47,15 @@
   .dato button{font-family:inherit;font-weight:600;font-size:13px;border:1px solid var(--borde);background:#fff;color:var(--tinta);padding:6px 12px;border-radius:8px;cursor:pointer;min-height:34px;}
   .qrpago{display:block;margin:10px auto 2px;max-width:220px;width:100%;border-radius:8px;}
   .nota{font-size:12.5px;color:var(--tinta-suave);margin:8px 0 0;}
+  .compartir{margin-top:16px;text-align:left;border-top:1px solid var(--borde);padding-top:16px;}
+  .compartir h2{margin:0 0 4px;font-size:16px;color:var(--tinta-fuerte);}
+  .btn-comp{font-family:inherit;font-weight:700;font-size:14px;border:0;background:var(--verde-700);color:#fff;padding:11px 16px;border-radius:12px;cursor:pointer;min-height:44px;width:100%;}
+  .btn-comp.sec{background:#fff;color:var(--verde-700);border:1.5px solid var(--verde-700);}
+  .fila-acomp{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #edf1ee;}
+  .fila-acomp:last-child{border-bottom:0;}
+  .fila-acomp strong{display:block;overflow-wrap:anywhere;color:var(--tinta-fuerte);}
+  .fila-acomp small{color:var(--tinta-suave);}
+  .fila-acomp .btn-comp{width:auto;padding:8px 14px;min-height:38px;font-size:13px;}
   .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--tinta-fuerte);color:#fff;padding:10px 16px;border-radius:99px;font-size:13px;}
 
 </style>
@@ -107,6 +116,17 @@ function pintarPago(data){
 }
 
 const token = new URLSearchParams(location.search).get('t');
+
+function enlaceEntrada(t){ return location.origin + location.pathname + '?t=' + encodeURIComponent(t); }
+async function compartirEntrada(data, nombre, t){
+  const url = enlaceEntrada(t);
+  const donde = [fmtFecha(data.fecha), data.hora, data.ciudad].filter(Boolean).join(' · ');
+  const texto = `Hola${nombre ? ' ' + nombre : ''} 🌿 Esta es tu entrada con QR para ${data.evento_nombre || 'el evento'}${donde ? ' (' + donde + ')' : ''}. Muéstrala al llegar:`;
+  if (navigator.share){
+    try { await navigator.share({ title: 'Tu entrada · Naturaleza Abierta', text: texto, url }); return; } catch(e){ if (e && e.name === 'AbortError') return; }
+  }
+  window.open('https://wa.me/?text=' + encodeURIComponent(texto + '\n' + url), '_blank', 'noopener');
+}
 const caja = document.getElementById('entrada');
 
 (async () => {
@@ -128,7 +148,22 @@ const caja = document.getElementById('entrada');
                     : '<div class="aviso mal">Tu reserva todavía no tiene el pago confirmado. Cuando se confirme, aquí aparecerá tu código.</div>'}
       ${data.pagada && Number(data.saldo) > 0 ? '<div id="zona-pago"></div>' : ''}
       ${data.asistio ? '<div class="aviso usada">Esta entrada ya fue usada.</div>' : ''}
+      ${data.pagada ? `<div class="compartir">
+        ${(data.acompanantes || []).length ? `<h2>Entradas de tus acompañantes</h2>
+          <p class="ayuda" style="margin-bottom:6px;">Envía a cada uno su entrada. Cada persona entra con su propio código.</p>
+          ${data.acompanantes.map((x, i) => `<div class="fila-acomp"><div><strong>${esc(x.nombre)}</strong>${x.asistio ? '<small>Ya ingresó</small>' : ''}</div><button type="button" class="btn-comp" data-acomp="${i}">Enviar</button></div>`).join('')}
+          <div style="height:12px"></div>` : ''}
+        <button type="button" class="btn-comp sec" id="btn-compartir">Compartir esta entrada</button>
+      </div>` : ''}
     </div>`;
+  if (data.pagada){
+    const bc = document.getElementById('btn-compartir');
+    if (bc) bc.onclick = () => compartirEntrada(data, '', token);
+    caja.querySelectorAll('[data-acomp]').forEach(b => b.onclick = () => {
+      const x = data.acompanantes[Number(b.dataset.acomp)];
+      compartirEntrada(data, x.nombre.split(' ')[0], x.qr_token);
+    });
+  }
 
   if (data.pagada && Number(data.saldo) > 0) pintarPago(data);
   if (data.pagada && window.QRCode){
