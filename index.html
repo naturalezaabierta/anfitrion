@@ -131,6 +131,27 @@
   .tabla-tot th{font-size:12px;color:var(--tinta-suave);}
   @media (prefers-reduced-motion:reduce){.barra-prog div{transition:none;}}
   .tabla-tot{display:block;overflow-x:auto;white-space:nowrap;}
+
+  /* Escáner con cámara */
+  #scan{position:fixed;inset:0;z-index:100;background:#000;color:#fff;overflow:hidden;}
+  #scan[hidden]{display:none;}
+  #scan video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+  .scan-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:max(12px,env(safe-area-inset-top)) 14px 12px;background:linear-gradient(rgba(0,0,0,.65),rgba(0,0,0,0));z-index:2;}
+  .scan-top button{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);color:#fff;min-height:44px;padding:8px 16px;border-radius:99px;}
+  .scan-top span{font-weight:700;font-size:15px;text-shadow:0 1px 3px rgba(0,0,0,.6);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .scan-marco{position:absolute;left:50%;top:40%;width:min(68vw,320px);aspect-ratio:1;transform:translate(-50%,-50%);
+    border:3px solid rgba(255,255,255,.9);border-radius:22px;box-shadow:0 0 0 100vmax rgba(0,0,0,.45);pointer-events:none;}
+  #scan-msg{position:absolute;left:0;right:0;top:calc(40% + min(34vw,160px) + 22px);text-align:center;font-weight:600;font-size:15px;padding:0 24px;text-shadow:0 1px 4px rgba(0,0,0,.7);z-index:1;}
+  #scan-res{position:absolute;left:0;right:0;bottom:0;background:#fff;color:#1d2a22;border-radius:22px 22px 0 0;
+    padding:16px 16px max(16px,env(safe-area-inset-bottom));z-index:3;box-shadow:0 -8px 30px rgba(0,0,0,.35);max-height:75vh;overflow:auto;}
+  #scan-res[hidden]{display:none;}
+  #scan-res .resultado{margin-bottom:12px;padding:16px 14px;}
+  #scan-res .acciones{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+  #scan-res .acciones button{min-height:50px;flex:1 1 140px;}
+  .barra-auto{height:4px;border-radius:4px;background:#d8efe1;overflow:hidden;margin:0 0 12px;}
+  .barra-auto div{height:100%;width:100%;background:#2e8b57;transform-origin:left;animation:autoavance 2.2s linear forwards;}
+  @keyframes autoavance{from{transform:scaleX(1);}to{transform:scaleX(0);}}
 </style>
 </head>
 <body>
@@ -164,6 +185,19 @@
     <button id="btn-salir" type="button">Salir</button>
   </header>
   <main id="contenido"></main>
+</div>
+
+<!-- ============ ESCÁNER ============ -->
+<div id="scan" hidden role="dialog" aria-label="Escanear entradas">
+  <video id="scan-video" playsinline muted autoplay></video>
+  <div class="scan-top">
+    <button type="button" id="scan-cerrar">✕ Cerrar</button>
+    <span id="scan-titulo">Escanear entradas</span>
+    <button type="button" id="scan-luz" hidden aria-label="Linterna">🔦</button>
+  </div>
+  <div class="scan-marco"></div>
+  <p id="scan-msg">Abriendo la cámara…</p>
+  <div id="scan-res" hidden></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -245,11 +279,13 @@ async function mostrarMisEventos(){
         <h3>${esc(e.nombre)}</h3>
         <div class="meta">${esc(fmtFecha(e.fecha))}${e.hora ? ' · ' + esc(e.hora) : ''}${e.ciudad_estado ? ' · ' + esc(e.ciudad_estado) : ''}<br>${e.personas_pagadas} persona(s) con reserva pagada</div>
         <div class="acciones">
-          <button type="button" data-ver="${esc(e.id)}">Ver asistentes</button>
+          <button type="button" data-escanear="${esc(e.id)}">📷 Escanear entradas</button>
+          <button type="button" class="sec" data-ver="${esc(e.id)}">Ver asistentes</button>
           ${e.enlace_grupo_whatsapp ? `<a href="${esc(e.enlace_grupo_whatsapp)}" target="_blank" rel="noopener"><button type="button" class="sec">Grupo de WhatsApp</button></a>` : ''}
         </div>
       </div>`).join('');
   cont.querySelectorAll('[data-ver]').forEach(b => b.onclick = () => abrirEvento(b.dataset.ver));
+  cont.querySelectorAll('[data-escanear]').forEach(b => b.onclick = () => abrirEscaner(b.dataset.escanear));
 }
 
 /* ---------- Escaneo de entrada (QR) ---------- */
@@ -271,7 +307,7 @@ async function escanear(token){
 
 function pintarResultadoQR(d, error){
   const cont = $('contenido');
-  const salir = '<div class="acciones" style="justify-content:center;"><button type="button" id="qr-listo">Listo, siguiente</button></div>';
+  const salir = '<div class="acciones" style="justify-content:center;"><button type="button" id="qr-listo">📷 Escanear siguiente</button><button type="button" class="sec" id="qr-eventos">Mis eventos</button></div>';
   if (!error && d && !d.error && Number(d.saldo) > 0 && (d.resultado === 'saldo_pendiente' || d.resultado === 'ya_habia_llegado')){
     return pintarCobro(d);
   }
@@ -308,7 +344,8 @@ function pintarResultadoQR(d, error){
       <div class="acciones" style="justify-content:center;margin-top:10px;"><button type="button" class="sec" id="qr-lista">Ver lista del evento</button></div>`;
   }
   cont.innerHTML = html;
-  $('qr-listo').onclick = mostrarMisEventos;
+  $('qr-listo').onclick = () => abrirEscaner((d && d.evento_id) || scanEvento);
+  $('qr-eventos').onclick = mostrarMisEventos;
   if ($('qr-lista')) $('qr-lista').onclick = () => abrirEvento(d.evento_id);
   if ($('btn-regalo')) $('btn-regalo').onclick = async () => {
     const b = $('btn-regalo'); b.disabled = true;
@@ -328,6 +365,7 @@ function pintarCobro(d){
       <p class="grande">Falta pagar ${esc(money(d.saldo, d.moneda))}</p>
       <div class="quien">${esc(nombreDe(d))}</div>
       <div class="linea">${d.personas} persona(s) · ${esc(d.evento_nombre || '')}</div>
+      ${d.total > 1 ? `<div class="linea"><strong>Ingreso ${d.ingresadas} de ${d.total}</strong></div>` : ''}
       <div class="linea">≈ ${bs(d.saldo_bs)} Bs a la tasa del día</div>
       ${ya ? '<div class="linea">Ya había ingresado con saldo pendiente.</div>' : ''}
     </div>
@@ -340,8 +378,10 @@ function pintarCobro(d){
     <div class="acciones" style="margin-top:16px;">
       ${ya ? '' : '<button type="button" class="sec" id="btn-pasar">Dejar pasar con saldo pendiente</button>'}
       <button type="button" class="sec" id="qr-listo">Volver</button>
+      <button type="button" id="cobro-escanear">📷 Escanear siguiente</button>
     </div>`;
   $('qr-listo').onclick = () => d.evento_id ? abrirEvento(d.evento_id) : mostrarMisEventos();
+  $('cobro-escanear').onclick = () => abrirEscaner(d.evento_id || scanEvento);
   if ($('btn-pasar')) $('btn-pasar').onclick = async () => {
     const b = $('btn-pasar'); b.disabled = true;
     const { data: r, error: e } = await sb.rpc('fn_dejar_pasar_qr', { p_token: d.token });
@@ -372,7 +412,7 @@ async function registrarCobro(d, metodo, monto, recibido, referencia, btn){
     toast(msg); return;
   }
   if (r.pasa){
-    pintarResultadoQR({ ...d, ok: true, resultado: 'marcada', saldo: 0, vuelto: r.vuelto }, null);
+    pintarResultadoQR({ ...d, ok: true, resultado: 'marcada', saldo: 0, vuelto: r.vuelto, ingresadas: Math.min(Number(d.ingresadas || 0) + 1, Number(d.total || 1)) }, null);
   } else {
     toast('Cobro registrado. Aún faltan ' + money(r.saldo_restante, d.moneda));
     escanear(d.token);
@@ -469,13 +509,14 @@ function pintarEvento(){
   const { evento, asistentes } = eventoActual;
   $('donde').textContent = evento.nombre;
   const totalPers = asistentes.reduce((s, a) => s + Number(a.personas || 1), 0);
-  const llegaron = asistentes.filter(a => a.asistio).reduce((s, a) => s + Number(a.personas || 1), 0);
+  const llegaron = asistentes.reduce((s, a) => s + Number(a.ingresadas ?? (a.asistio ? (a.personas || 1) : 0)), 0);
   const pct = totalPers ? Math.round(llegaron * 100 / totalPers) : 0;
 
   const q = filtro.trim().toLowerCase();
   const visibles = asistentes.filter(a => !q || (`${a.nombre || ''} ${a.apellido || ''}`).toLowerCase().includes(q));
 
   $('contenido').innerHTML = `
+    <button type="button" id="escanear-ev" style="width:100%;min-height:58px;font-size:18px;margin-bottom:14px;">📷 Escanear entradas</button>
     <div class="acciones" style="margin-bottom:14px;">
       <button type="button" class="sec" id="volver">Volver a mis eventos</button>
       <button type="button" class="sec" id="refrescar">Actualizar lista</button>
@@ -496,7 +537,8 @@ function pintarEvento(){
         <div class="asistente ${a.asistio ? 'llego' : ''}">
           <div class="datos">
             <div class="nombre">${esc(((a.nombre || '') + ' ' + (a.apellido || '')).trim() || 'Sin nombre')}</div>
-            <div class="det">${a.personas} persona(s)${a.asistio ? ' · Llegó' + (a.atendio ? ' (atendió ' + esc(a.atendio) + ')' : '') : ''}</div>
+            <div class="det">${a.personas} persona(s)${a.asistio ? ' · Llegó' + (a.atendio ? ' (atendió ' + esc(a.atendio) + ')' : '') : ''}${(a.ingresadas > 0 && a.ingresadas < a.personas) ? ' · ' + a.ingresadas + ' de ' + a.personas + ' ya ingresaron' : ''}</div>
+            ${(a.acompanantes || []).length ? `<div class="det">Con: ${a.acompanantes.map(x => esc(x.nombre) + (x.asistio ? ' ✓' : '')).join(', ')}</div>` : ''}
             ${Number(a.saldo) > 0 ? `<span class="chip">Falta pagar: ${esc(money(a.saldo, a.moneda))}</span>` : ''}
           </div>
           ${Number(a.saldo) > 0
@@ -507,6 +549,7 @@ function pintarEvento(){
     }</div>`;
 
   $('volver').onclick = mostrarMisEventos;
+  $('escanear-ev').onclick = () => abrirEscaner(evento.id);
   $('refrescar').onclick = () => abrirEvento(evento.id);
   $('ver-cobros').onclick = () => verCobros(evento.id);
   $('buscar').addEventListener('input', (e) => {
@@ -535,8 +578,187 @@ async function marcar(btn){
     return;
   }
   const a = eventoActual.asistentes.find(x => x.compra_id === id);
-  if (a) a.asistio = nuevo;
+  if (a){ a.asistio = nuevo; a.ingresadas = nuevo ? Number(a.personas || 1) : 0; }
   pintarEvento();
+}
+
+/* ---------- Escáner con cámara dentro de la app (continuo) ---------- */
+let scanEvento = null, scanStream = null, scanRaf = null, scanOcupado = false, scanDet = null, scanCanvas = null;
+let scanWake = null, scanTimer = null, scanBloqueo = { token: '', hasta: 0 }, scanUltimo = 0, scanLuz = false;
+
+function pitido(ok){
+  try{
+    const AC = window.AudioContext || window.webkitAudioContext; const c = new AC();
+    const o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination);
+    o.frequency.value = ok ? 880 : 220; g.gain.value = .12; o.start(); o.stop(c.currentTime + (ok ? .12 : .3));
+    setTimeout(() => c.close(), 600);
+  }catch(_){}
+}
+function tokenDeTexto(txt){
+  const t = String(txt || '').trim();
+  try{ const u = new URL(t); const p = u.searchParams.get('t'); if (p) return p; }catch(_){}
+  return /^[A-Za-z0-9]{10,}$/.test(t) ? t : null;
+}
+function cargarJsQR(){
+  return new Promise((ok, mal) => {
+    if (window.jsQR) return ok();
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+    s.onload = ok; s.onerror = mal; document.head.appendChild(s);
+  });
+}
+const msgEscaner = t => { $('scan-msg').textContent = t; };
+
+async function abrirEscaner(eventoId){
+  scanEvento = eventoId || null;
+  clearTimeout(scanTimer); detenerCamara();
+  $('scan').hidden = false; document.body.style.overflow = 'hidden';
+  $('scan-res').hidden = true; $('scan-luz').hidden = true;
+  $('scan-titulo').textContent = (eventoActual && eventoActual.evento && eventoActual.evento.id === scanEvento) ? eventoActual.evento.nombre : 'Escanear entradas';
+  msgEscaner('Abriendo la cámara…');
+  scanOcupado = true;
+  try{
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('sin_camara');
+    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+    const v = $('scan-video'); v.srcObject = scanStream; await v.play();
+    const tr = scanStream.getVideoTracks()[0];
+    const caps = tr && tr.getCapabilities ? tr.getCapabilities() : {};
+    scanLuz = false; $('scan-luz').hidden = !caps.torch;
+    scanDet = null;
+    if ('BarcodeDetector' in window){ try{ scanDet = new BarcodeDetector({ formats: ['qr_code'] }); }catch(_){ scanDet = null; } }
+    if (!scanDet){ await cargarJsQR(); scanCanvas = document.createElement('canvas'); }
+    try{ if (navigator.wakeLock) scanWake = await navigator.wakeLock.request('screen'); }catch(_){}
+    msgEscaner('Apunta al código QR de la entrada');
+    scanOcupado = false; bucleEscaner();
+  }catch(e){
+    detenerCamara();
+    const negado = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
+    msgEscaner(negado
+      ? 'No tenemos permiso para usar la cámara. Toca el candado junto a la dirección de la página, permite la cámara y vuelve a abrir el escáner.'
+      : 'No pudimos abrir la cámara de este teléfono. Cierra otras apps que la estén usando e inténtalo de nuevo.');
+  }
+}
+
+function detenerCamara(){
+  if (scanRaf) cancelAnimationFrame(scanRaf); scanRaf = null;
+  if (scanStream){ scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+  try{ $('scan-video').srcObject = null; }catch(_){}
+  if (scanWake){ try{ scanWake.release(); }catch(_){} scanWake = null; }
+}
+function cerrarEscaner(){
+  clearTimeout(scanTimer); detenerCamara();
+  $('scan').hidden = true; $('scan-res').hidden = true; document.body.style.overflow = '';
+}
+$('scan-cerrar').onclick = () => {
+  const ev = scanEvento; cerrarEscaner();
+  if (ev) abrirEvento(ev); else mostrarMisEventos();
+};
+$('scan-luz').onclick = async () => {
+  try{
+    scanLuz = !scanLuz;
+    await scanStream.getVideoTracks()[0].applyConstraints({ advanced: [{ torch: scanLuz }] });
+  }catch(_){ scanLuz = false; }
+};
+document.addEventListener('visibilitychange', () => { if (document.hidden && !$('scan').hidden) detenerCamara(); });
+
+async function bucleEscaner(){
+  if (!scanStream) return;
+  const v = $('scan-video');
+  const ahora = performance.now();
+  if (!scanOcupado && v.readyState >= 2 && v.videoWidth && ahora - scanUltimo > 100){
+    scanUltimo = ahora;
+    let texto = null;
+    try{
+      if (scanDet){
+        const r = await scanDet.detect(v); if (r.length) texto = r[0].rawValue;
+      } else if (window.jsQR){
+        const w = Math.min(640, v.videoWidth), h = Math.round(v.videoHeight * w / v.videoWidth);
+        scanCanvas.width = w; scanCanvas.height = h;
+        const ctx = scanCanvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(v, 0, 0, w, h);
+        const im = ctx.getImageData(0, 0, w, h);
+        const r = window.jsQR(im.data, w, h, { inversionAttempts: 'dontInvert' });
+        if (r) texto = r.data;
+      }
+    }catch(_){}
+    if (texto){
+      const t = tokenDeTexto(texto);
+      if (t && !scanOcupado && !(t === scanBloqueo.token && Date.now() < scanBloqueo.hasta)) procesarEscaneo(t);
+    }
+  }
+  if (scanStream) scanRaf = requestAnimationFrame(bucleEscaner);
+}
+
+async function procesarEscaneo(token){
+  scanOcupado = true; clearTimeout(scanTimer);
+  if (navigator.vibrate) navigator.vibrate(60);
+  msgEscaner('Verificando…');
+  const { data, error } = await sb.rpc('fn_marcar_asistencia_qr', { p_token: token });
+  mostrarResultadoEscaner(token, data, error);
+}
+
+function reanudarEscaner(token){
+  clearTimeout(scanTimer);
+  $('scan-res').hidden = true;
+  scanBloqueo = { token: token || '', hasta: Date.now() + 1800 };
+  msgEscaner('Apunta al código QR de la entrada');
+  scanOcupado = false;
+}
+
+function mostrarResultadoEscaner(token, d, error){
+  const res = $('scan-res');
+  let clase = 'bad', titulo = '', quien = '', lineas = [], auto = false, regalo = false;
+  if (error || !d){
+    titulo = 'Sin conexión'; lineas = ['No se pudo verificar. Revisa tu internet y vuelve a escanear el código.'];
+  } else if (d.error){
+    const msg = {
+      no_encontrada: ['Código no válido', 'Este código no corresponde a ninguna entrada.'],
+      sin_acceso: ['Sin permiso', 'Tu cuenta no puede validar entradas.'],
+      otro_evento: ['Otro evento', `Esta entrada es de “${d.evento_nombre || ''}”, un evento que no tienes asignado.`],
+      sin_pagar: ['Pago pendiente', `La reserva de ${nombreDe(d)} no tiene el pago confirmado.`]
+    }[d.error] || ['No se pudo validar', 'Intenta de nuevo.'];
+    clase = d.error === 'sin_pagar' ? 'warn' : 'bad'; titulo = msg[0]; 
+    lineas = [{ t: msg[1] }];
+  } else if (Number(d.saldo) > 0 && (d.resultado === 'saldo_pendiente' || d.resultado === 'ya_habia_llegado')){
+    pitido(false); cerrarEscaner(); pintarCobro(d); return;   // falta pagar: pantalla de cobro
+  } else {
+    const ya = d.resultado === 'ya_habia_llegado';
+    quien = nombreDe(d) || 'Invitado';
+    if (ya){
+      clase = 'warn'; titulo = 'Ya había ingresado';
+      lineas.push({ t: d.total > 1 ? `Ya entraron las ${d.total} personas de este código.` : 'Esta entrada ya fue usada.' });
+      if (d.marcada_en) lineas.push({ t: 'Se escaneó a las ' + new Date(d.marcada_en).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) + '.' });
+    } else {
+      clase = 'ok'; titulo = 'Puede pasar'; auto = true; regalo = !d.regalo_entregado;
+      if (d.es_acompanante && d.titular) lineas.push({ t: 'Acompañante de ' + d.titular });
+      if (d.total > 1) lineas.push({ t: `Ingreso ${d.ingresadas} de ${d.total}` + (d.ingresadas < d.total ? ` · faltan ${d.total - d.ingresadas} con este código` : ''), b: true });
+      lineas.push({ t: 'Entrégale su brazalete.', b: true });
+    }
+    if (scanEvento && d.evento_id && d.evento_id !== scanEvento) lineas.push({ t: '⚠ Esta entrada es de otro evento: ' + (d.evento_nombre || ''), b: true });
+  }
+  pitido(clase === 'ok');
+  res.innerHTML = `
+    ${auto ? '<div class="barra-auto"><div></div></div>' : ''}
+    <div class="resultado ${clase}">
+      <p class="grande">${esc(titulo)}</p>
+      ${quien ? `<div class="quien">${esc(quien)}</div>` : ''}
+      ${lineas.map(l => `<div class="linea">${l.b ? '<strong>' + esc(l.t) + '</strong>' : esc(l.t)}</div>`).join('')}
+    </div>
+    <div class="acciones">
+      ${regalo ? '<button type="button" class="sec" id="sc-regalo">🎁 Regalo entregado</button>' : ''}
+      <button type="button" id="sc-sig">Siguiente</button>
+    </div>`;
+  res.hidden = false; msgEscaner('');
+  $('sc-sig').onclick = () => reanudarEscaner(token);
+  if ($('sc-regalo')) $('sc-regalo').onclick = async () => {
+    clearTimeout(scanTimer);
+    const bar = res.querySelector('.barra-auto'); if (bar) bar.remove();
+    const b = $('sc-regalo'); b.disabled = true;
+    const { data: r, error: e } = await sb.rpc('fn_marcar_regalo_qr', { p_token: d.token || token, p_entregado: true });
+    if (e || (r && r.error)){ b.disabled = false; toast('No se pudo guardar el regalo.'); return; }
+    b.textContent = 'Regalo entregado ✓';
+  };
+  if (auto) scanTimer = setTimeout(() => reanudarEscaner(token), 2200);
 }
 
 iniciar();
